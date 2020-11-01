@@ -1,0 +1,27 @@
+# Copied from Pace Cluster Instructions
+# Set Nodes = # of nodes you want
+# Set ppn = # of processors you want
+# Set -np # ./prog1 at bottom to how many proccesses you want to start?
+#PBS -N output
+#PBS -n
+#PBS -l nodes=1:gpus=1:exclusive_process
+#PBS -l walltime=00:15:00
+#PBS -q coc-ice-gpu
+#PBS -o data.out
+#PBS -m abe
+#PBS -M pstephens30@gatech.edu
+cd ~/cse6230fa20/Labs/lab6
+module load cuda/10.1
+
+
+
+
+make
+export block=512
+
+for N in 1000000 2000000 3000000 4000000 5000000 6000000 7000000 8000000 9000000 10000000
+do
+    ./reduction.exe $N 1
+done
+
+make clean

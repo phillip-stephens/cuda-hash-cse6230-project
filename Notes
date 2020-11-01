@@ -1,0 +1,1 @@
+make && export block=64 && cuda-memcheck ./reduction.exe 1000000 > output
