@@ -26,13 +26,14 @@
  #include <time.h>
  #include <stdlib.h>
  #include <stdint.h>
+ #include <assert.h>
  
  #include <cuda_runtime.h>
  #include <cuda_runtime_api.h>
  #include <curand_kernel.h>
  #include <device_functions.h>
 
- #define MD5_HASH_SIZE = 16; //16 bytes = 128 bits
+ #define MD5_HASH_SIZE 16 //16 bytes = 128 bits
  
  /* F, G and H are basic MD5 functions: selection, majority, parity */
  #define F(x, y, z) (((x) & (y)) | ((~x) & (z)))
@@ -67,7 +68,7 @@
    }
  
 //  __device__ inline void md5Hash(unsigned char* data, uint32_t length, uint32_t *a1, uint32_t *b1, uint32_t *c1, uint32_t *d1){
- void md5Hash(unsigned char* data, uint32_t length, uint32_t *a1, uint32_t *b1, uint32_t *c1, uint32_t *d1){
+ void md5Hash(unsigned char* data, uint32_t length, char* result){
    const uint32_t a0 = 0x67452301;
    const uint32_t b0 = 0xEFCDAB89;
    const uint32_t c0 = 0x98BADCFE;
@@ -204,11 +205,12 @@
    b += b0;
    c += c0;
    d += d0;
- 
-   *a1 = a;
-   *b1 = b;
-   *c1 = c;
-   *d1 = d;
+  
+   uint32_t* uint_ptr = (uint32_t*)result;
+   uint_ptr[0] = a;
+   uint_ptr[1] = b;
+   uint_ptr[2] = c;
+   uint_ptr[3] = d;
  }
 
  void check_endian() {
@@ -222,45 +224,90 @@
        printf("Big endian\n"); 
  }
 
- void print_hash_little_endian(uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d) {
-   uint16_t hash_size = sizeof(uint32_t) * 4; //128 bit
-   printf("%u\n", hash_size);
-   uint32_t* bytes = (uint32_t*) malloc(hash_size);
-   bytes[0] = *a;
-   bytes[1] = *b;
-   bytes[2] = *c;
-   bytes[3] = *d;
-   for(int i=0;i<hash_size;i++) {
-     char* byte = ((char*)bytes)+i;
-     printf("%02X", *byte & 0xff);
-     if (i%4==0 && i!= 0) printf(" ");
+ void print_hash_little_endian(char* result) {
+   for(int i=0;i<MD5_HASH_SIZE;i++) {
+     printf("%02X", result[i] & 0xff);
+    //  if ((i+1)%4==0) printf(" ");
    }
    printf("\n");
    fflush(stdout);
-   free(bytes);
  }
 
-char* hash_input(unsigned char* string) {
-    uint32_t* a = (uint32_t*) malloc(sizeof(uint32_t));
-    uint32_t* b = (uint32_t*) malloc(sizeof(uint32_t));
-    uint32_t* c = (uint32_t*) malloc(sizeof(uint32_t));
-    uint32_t* d = (uint32_t*) malloc(sizeof(uint32_t));
+ void print_hash(char* result) {
+   for(int i=0;i<MD5_HASH_SIZE/4;i++) {
+     printf("%08X", ((uint32_t*)result)[i] & 0xffffffff);
+   }
+   printf("\n");
+   fflush(stdout);
+ }
+
+ void convert_to_big_endian(char* result) {
+  //  char temp[2*MD5_HASH_SIZE];
+  //  for(int i=0;i<MD5_HASH_SIZE;i++) {
+  //   //  printf("%02X", result[i] & 0xff);
+  //    sprintf((&temp[i*2]), "%02X", result[i] & 0xff);
+  //   //  if ((i+1)%4==0) printf(" ");
+  //  }
+  //  printf("%s\n", temp);
+
+  //  fflush(stdout);
+  for (int i = 0;i<MD5_HASH_SIZE/4;i++) {
+    int base = i*4;
+    char temp = result[base+3];
+    result[base + 3] = result[base + 0];
+    result[base+0] = temp;
+
+    temp = result[base+2];
+    result[base+2] = result[base+1];
+    result[base+1] = temp;
+  }
+
+
+ }
+
+void hash_input(unsigned char* string) {
+    char* result = (char*)malloc(MD5_HASH_SIZE * 8);
     uint32_t str_length = strlen((char*)string);
     printf("Size of input: %u\n", str_length);
-    md5Hash(string, str_length, a,b,c,d);
-    printf("%X  %X %X %X\n", *a,*b,*c,*d);
-    print_hash_little_endian(a,b,c,d);
-    free(a);
-    free(b);
-    free(c);
-    free(d);
+    md5Hash(string, str_length, result);
+    print_hash_little_endian(result);
+    convert_to_big_endian(result);
+    print_hash(result);
+    free(result);
 }
 
+bool check_hash() {
+  char* test_string = "test";
+  char* expected_output = "098f6bcd4621d373cade4e832627b4f6";
+  char* result = (char*)malloc(MD5_HASH_SIZE * 8);
+  uint32_t str_length = strlen((char*)test_string);
+  md5Hash((unsigned char*)test_string, str_length, result);
+  
+
+  for(int i=0;i<MD5_HASH_SIZE;i++) {
+    char* c;
+    sprintf(c, "%02x", result[i] & 0xff);
+    printf("%s\n%c", c, expected_output[i]);
+    fflush(stdout);
+    assert(expected_output[i] == *c);
+  //  if ((i+1)%4==0) printf(" ");
+  }
+  printf("\n");
+  fflush(stdout);
+
+
+  printf("Hashes Match? %u\n", strcmp(result, expected_output));
+  free(result);
+  return strcmp(result, expected_output) == 0;
+
+}
 
  int main(int argc, char *argv[]) {
      char * string = "test";
      printf("String = %s\n", string);
      check_endian();
      fflush(stdout);
-     char * hash = hash_input((unsigned char*)string);
+    //  check_hash();
+     hash_input((unsigned char*)string);
+
  }
