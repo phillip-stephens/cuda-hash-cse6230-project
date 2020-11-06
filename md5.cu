@@ -226,7 +226,7 @@
 
  void print_hash_little_endian(char* result) {
    for(int i=0;i<MD5_HASH_SIZE;i++) {
-     printf("%02X", result[i] & 0xff);
+     printf("%02x", result[i] & 0xff);
     //  if ((i+1)%4==0) printf(" ");
    }
    printf("\n");
@@ -235,10 +235,21 @@
 
  void print_hash(char* result) {
    for(int i=0;i<MD5_HASH_SIZE/4;i++) {
-     printf("%08X", ((uint32_t*)result)[i] & 0xffffffff);
+     printf("%08x", ((uint32_t*)result)[i] & 0xffffffff);
    }
    printf("\n");
    fflush(stdout);
+ }
+
+ char* get_hex_hash(char* result) {
+   char* hex_hash = (char*)malloc(MD5_HASH_SIZE*2);
+   
+   for(int i=0;i<MD5_HASH_SIZE;i++) {
+     sprintf(&hex_hash[i*2],"%02x", result[i] & 0xff);
+    //  if ((i+1)%4==0) printf(" ");
+   }
+   printf("hex: %s\n", hex_hash);
+   return hex_hash;
  }
 
  void convert_to_big_endian(char* result) {
@@ -265,49 +276,85 @@
 
  }
 
-void hash_input(unsigned char* string) {
+void hash_input(unsigned char* string, uint length_statement) {
     char* result = (char*)malloc(MD5_HASH_SIZE * 8);
-    uint32_t str_length = strlen((char*)string);
+    // uint32_t str_length = strlen((char*)string);
+    uint32_t str_length = length_statement;
     printf("Size of input: %u\n", str_length);
     md5Hash(string, str_length, result);
     print_hash_little_endian(result);
-    convert_to_big_endian(result);
-    print_hash(result);
+    // convert_to_big_endian(result);
+    // print_hash(result);
     free(result);
 }
 
 bool check_hash() {
   char* test_string = "test";
   char* expected_output = "098f6bcd4621d373cade4e832627b4f6";
-  char* result = (char*)malloc(MD5_HASH_SIZE * 8);
+  char* result = (char*)malloc(MD5_HASH_SIZE);
   uint32_t str_length = strlen((char*)test_string);
   md5Hash((unsigned char*)test_string, str_length, result);
-  
-
-  for(int i=0;i<MD5_HASH_SIZE;i++) {
-    char* c;
-    sprintf(c, "%02x", result[i] & 0xff);
-    printf("%s\n%c", c, expected_output[i]);
-    fflush(stdout);
-    assert(expected_output[i] == *c);
-  //  if ((i+1)%4==0) printf(" ");
+  char* hash_hex = get_hex_hash(result);
+  for (int i = 0; i<strlen(expected_output);i++) {
+    // printf("Hash %c Exp %c\n", hash_hex[i], expected_output[i]);
+    assert(hash_hex[i] == expected_output[i]);
   }
-  printf("\n");
-  fflush(stdout);
+  assert(strcmp(hash_hex, expected_output) == 0);
 
-
-  printf("Hashes Match? %u\n", strcmp(result, expected_output));
+  free(hash_hex);
   free(result);
   return strcmp(result, expected_output) == 0;
 
 }
+//(To whom it may concern, null) I, Phillip Stephens, (bequeath, grant) (all, the entirety) of my (personal, null) (belongings, possessions) to my (two, null) children(, Alice and Bob, null). I (give, leave) my (house, home) to Alice and my (red, null) (sports, null) (Ferrari, car) to Bob. (Additionally, In addition), (all, the entirety) of my monetary (assets, accounts) (I’d, I would) (like, prefer) to (leave,give) to the (community, local) food (bank, pantry). I (hope, believe) that this (small, null) act of (generosity, kindness) will (affect, help) (many, null) (others, other people) as I too have been (affected, helped) by (so, null) many (more, others).
+// (Signed, Sincerely), Phillip Stephens
+
+void generate_statements(char* statement_ptr, int num_statements, int length_statement) {
+  double num_oct_digits = ceil(log(num_statements) / log(2) / 4);
+  uint i,j, bin_digit;
+  char letter;
+
+  for (i = 0; i<num_statements; i++) {
+    sprintf(statement_ptr+(i*length_statement), "%d",i);
+  }
+  for (i = 0; i<num_statements; i++) {
+    for (j=0;j<length_statement;j++) {
+      printf("%c", statement_ptr[i*length_statement + j]);
+    }
+    printf("\n");
+  }
+
+  // printf("Phrase %s", statement_ptr);
+}
+
+void check_statements(char* statement_ptr, int num_statements, int length_statement) {
+    char* target = "ad9225d796d5da7da216af1ea9982079";
+    char* result = (char*)malloc(MD5_HASH_SIZE * 8);
+    // uint32_t str_length = strlen((char*)string);
+    uint32_t str_length = length_statement;
+    printf("Size of input: %u\n", str_length);
+    md5Hash(string, str_length, result);
+    print_hash_little_endian(result);
+    // convert_to_big_endian(result);
+    // print_hash(result);
+    free(result);
+}
 
  int main(int argc, char *argv[]) {
-     char * string = "test";
-     printf("String = %s\n", string);
-     check_endian();
-     fflush(stdout);
+    //  char * string = "test";
+    //  printf("String = %s\n", string);
+    //  check_endian();
+    //  fflush(stdout);
     //  check_hash();
-     hash_input((unsigned char*)string);
+    //  hash_input((unsigned char*)string);
+    uint num_statements = int(pow(2,4));
+    uint length_statement = 10;
+    char * statement_ptr= (char*) malloc(num_statements * length_statement);
+    generate_statements(statement_ptr, num_statements, length_statement);
+    hash_input((unsigned char *)statement_ptr, length_statement);
+    for (uint i = 0;i<num_statements;i++) {
+    hash_input((unsigned char *)(statement_ptr+i*length_statement), length_statement);
+    }
 
+    free(statement_ptr);
  }
